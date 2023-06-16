@@ -40,6 +40,8 @@ dependencies:
   camera: ^0.10.1
   http: ^0.13.4
   flutter_ringtone_player: ^3.2.0
+  google_ml_kit: ^0.15.0
+  speech_to_text: ^6.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

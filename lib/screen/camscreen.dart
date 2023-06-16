@@ -19,7 +19,7 @@ class _CamRegisterState extends State<CamRegister> {
   late Future<void> _cameraInitFuture;
   bool faceRegistered = false;
 
-  late final String myFace_base64;
+  late XFile? myFaceImageFile;
 
   @override
   void initState() {
@@ -103,44 +103,56 @@ class _CamRegisterState extends State<CamRegister> {
     );
   }
 
-  void faceRegister() async {
-    String url = 'http://example.com/not_yet/create-human';
+  //
+  // void faceRegister() async {
+  //   String url = 'http://example.com/not_yet/create-human';
+  //
+  //   XFile imageFile; // Variable to store the captured image file
+  //
+  //   try {
+  //     // Capture a photo
+  //     imageFile = await _cameraController.takePicture();
+  //
+  //     // Convert the image file to base64 string
+  //     List<int> imageBytes = await imageFile.readAsBytes();
+  //     String base64Image = base64Encode(imageBytes);
+  //
+  //     // Prepare the request body
+  //     Map<String, String> headers = {'Content-Type': 'application/json'};
+  //     Map<String, dynamic> body = {'image': base64Image};
+  //
+  //     // Send the HTTP request
+  //     http.Response response = await http.post(
+  //       Uri.parse(url),
+  //       headers: headers,
+  //       body: jsonEncode(body),
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       // Response received successfully
+  //       Map<String, dynamic> responseData = jsonDecode(response.body);
+  //       String result = responseData['result'];
+  //       myFace_base64 = base64Image;
+  //       faceRegistered = true;
+  //       showRegisterSuccess(result);
+  //     } else {
+  //       // Request failed
+  //       // TODO: Handle the error
+  //     }
+  //   } catch (error) {
+  //     // Error occurred during the request
+  //     // TODO: Handle the error
+  //   }
+  // }
 
+  void faceRegister() async {
     XFile imageFile; // Variable to store the captured image file
 
-    try {
-      // Capture a photo
-      imageFile = await _cameraController.takePicture();
-
-      // Convert the image file to base64 string
-      List<int> imageBytes = await imageFile.readAsBytes();
-      String base64Image = base64Encode(imageBytes);
-
-      // Prepare the request body
-      Map<String, String> headers = {'Content-Type': 'application/json'};
-      Map<String, dynamic> body = {'image': base64Image};
-
-      // Send the HTTP request
-      http.Response response = await http.post(
-        Uri.parse(url),
-        headers: headers,
-        body: jsonEncode(body),
-      );
-
-      if (response.statusCode == 200) {
-        // Response received successfully
-        Map<String, dynamic> responseData = jsonDecode(response.body);
-        String result = responseData['result'];
-        myFace_base64 = base64Image;
-        faceRegistered = true;
-        showRegisterSuccess(result);
-      } else {
-        // Request failed
-        // TODO: Handle the error
-      }
-    } catch (error) {
-      // Error occurred during the request
-      // TODO: Handle the error
+    // Capture a photo
+    imageFile = await _cameraController.takePicture();
+    myFaceImageFile = imageFile;
+    if (myFaceImageFile != null) {
+      showRegisterSuccess("얼굴 등록 완료");
     }
   }
 
@@ -154,7 +166,8 @@ class _CamRegisterState extends State<CamRegister> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(myFace_base64); // Close the dialog
+                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop(myFaceImageFile); // Return to the home screen
                 // TODO: Additional actions if needed
               },
               child: Text('OK'),

@@ -1,8 +1,15 @@
+import 'dart:async';
+
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:video_call/screen/camscreen.dart';
 import 'package:video_call/screen/comparescreen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'dart:math';
+
+final stt.SpeechToText speechToText = stt.SpeechToText();
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -14,7 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool faceCorrect = false;
   bool faceRegistered = false;
-  String myFace_base64 = "";
+  XFile? myFaceImageFile;
 
   void registerpop() async {
     final result = await Navigator.of(context).push(
@@ -25,20 +32,28 @@ class _HomeScreenState extends State<HomeScreen> {
       }),
     );
     if (result != null) {
-      myFace_base64 = result;
-      faceRegistered = true;
+      print("not null");
+      setState(() {
+        myFaceImageFile = result;
+        faceRegistered = true;
+      });
     }
   }
 
   void comparepop() async {
-    Navigator.of(context).push(
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(builder: (BuildContext context) {
         return CamCompare(
-          myFace: myFace_base64,
+          myFaceImageFile: myFaceImageFile,
         );
       }),
     );
-    faceCorrect = true;
+    if (result != null) {
+      setState(() {
+        faceCorrect = true;
+        FlutterRingtonePlayer.stop();
+      });
+    }
   }
 
   Future<void> permissionInit() async {
@@ -71,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           children: [
             Expanded(
-              child: _Logo(myFace: myFace_base64),
+              child: _Logo(myFaceImageFile: myFaceImageFile),
             ),
             Expanded(
               child: _Image(),
@@ -80,11 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                registerButton(onPressed: registerpop),
-                compareButton(
+                RegisterButton(onPressed: registerpop),
+                CompareButton(
                   onPressed: comparepop,
                   abled: faceRegistered,
-                )
+                ),
               ],
             ))
           ],
@@ -95,24 +110,194 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _Logo extends StatefulWidget {
-  final String myFace;
+  late XFile? myFaceImageFile;
 
-  const _Logo({required this.myFace, Key? key}) : super(key: key);
+  _Logo({required this.myFaceImageFile, Key? key}) : super(key: key);
 
   @override
   _LogoState createState() => _LogoState();
 }
 
 class _LogoState extends State<_Logo> {
-  late final String myFace;
+  late XFile? myFaceImageFile;
   bool isWaitingForResponse = false;
   bool isAlarmActive = false;
 
   @override
   void initState() {
-    myFace = widget.myFace;
     super.initState();
+    myFaceImageFile = widget.myFaceImageFile;
   }
+
+  @override
+  Widget build(BuildContext context) {
+    print(myFaceImageFile);
+    return StartButton(
+      isWaitingForResponse: isWaitingForResponse,
+      onPressed: onPressed,
+    );
+  }
+
+  void onPressed() async {
+    setState(() {
+      isWaitingForResponse = true;
+    });
+
+    while (isWaitingForResponse) {
+      // Communicate with the server every 5 seconds and check for a response
+      await Future.delayed(const Duration(seconds: 5));
+
+      // Make an HTTP request to the server and check the response
+      // Replace this with your actual HTTP request code
+      bool isResponseStrange = await checkSoundResponse();
+      print(isResponseStrange);
+      if (isResponseStrange) {
+        setState(() {
+          isAlarmActive = true;
+        });
+
+        // Start the phone alarm
+        // Replace this with your actual code to start the alarm
+        startPhoneAlarm();
+
+        // Exit the loop and stop waiting for the response
+        break;
+      }
+    }
+
+    // Reset the button state
+    setState(() {
+      isWaitingForResponse = false;
+    });
+
+    // If the response is not strange, navigate to CamCompare screen
+    if (!isAlarmActive) {
+      navigateToCamCompare();
+    }
+  }
+
+  Future<bool> checkSoundResponse() async {
+    bool isSpecificWordFound =
+        false; // Variable to track if the specific word is found
+
+    if (await speechToText.initialize()) {
+      // Create a Completer to handle the result asynchronously
+      Completer<bool> completer = Completer<bool>();
+
+      speechToText.listen(
+        onResult: (result) {
+          final String recognizedSpeech = result.recognizedWords.toLowerCase();
+          print(result);
+          if (recognizedSpeech.contains('게임')) {
+            isSpecificWordFound = true; // Set the variable to true
+          }
+        },
+        onSoundLevelChange: (level) {
+          // Optional: Handle sound level changes if needed
+        },
+        listenFor: Duration(seconds: 5), // Listen for 5 seconds
+      );
+
+      // Wait for the result or timeout after 5 seconds
+      await Future.delayed(Duration(seconds: 5));
+      completer.complete(
+          isSpecificWordFound); // Complete the completer with the result
+
+      // Stop listening after the timeout
+      speechToText.stop();
+      // Return the result from the Completer
+      return await completer.future;
+    }
+    return false;
+  }
+
+  void startPhoneAlarm() {
+    // Code to start the phone alarm
+    // Replace this with your actual code to start the alarm
+    FlutterRingtonePlayer.playAlarm(
+      looping: true, // Set to true for continuous playback
+      asAlarm: true, // Play as an alarm sound
+      volume: 1.0, // Set the volume (0.0 to 1.0)
+    );
+  }
+
+  void navigateToCamCompare() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (BuildContext context) {
+        return CamCompare(
+          myFaceImageFile: myFaceImageFile,
+        );
+      }),
+    );
+
+    // Check if the user is the original user
+    if (result == 'Faces matched') {
+      // Stop the phone alarm
+      // Replace this with your actual code to stop the alarm
+      stopPhoneAlarm();
+    }
+  }
+
+  void stopPhoneAlarm() {
+    // Code to stop the phone alarm
+    // Replace this with your actual code to stop the alarm
+    FlutterRingtonePlayer.stop();
+  }
+}
+
+class _Image extends StatelessWidget {
+  const _Image({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Image.asset('asset/img/home_img.png'),
+    );
+  }
+}
+
+class RegisterButton extends StatelessWidget {
+  late final VoidCallback onPressed;
+
+  RegisterButton({required this.onPressed, Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        ElevatedButton(onPressed: onPressed, child: Text("얼굴 등록")),
+      ],
+    );
+  }
+}
+
+class CompareButton extends StatelessWidget {
+  late final VoidCallback onPressed;
+  late final bool abled;
+
+  CompareButton({required this.onPressed, required this.abled, Key? key})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        ElevatedButton(
+            onPressed: abled ? onPressed : null, child: Text("얼굴 인식")),
+      ],
+    );
+  }
+}
+
+class StartButton extends StatelessWidget {
+  final bool isWaitingForResponse;
+  final VoidCallback onPressed;
+
+  const StartButton(
+      {required this.isWaitingForResponse, required this.onPressed, Key? key})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -145,127 +330,6 @@ class _LogoState extends State<_Logo> {
           ],
         ),
       ),
-    );
-  }
-
-  void onPressed() async {
-    setState(() {
-      isWaitingForResponse = true;
-    });
-
-    while (isWaitingForResponse) {
-      // Communicate with the server every 5 seconds and check for a response
-      await Future.delayed(const Duration(seconds: 5));
-
-      // Make an HTTP request to the server and check the response
-      // Replace this with your actual HTTP request code
-      bool isResponseStrange = await checkServerResponse();
-      if (isResponseStrange) {
-        setState(() {
-          isAlarmActive = true;
-        });
-
-        // Start the phone alarm
-        // Replace this with your actual code to start the alarm
-        startPhoneAlarm();
-
-        // Exit the loop and stop waiting for the response
-        break;
-      }
-    }
-
-    // Reset the button state
-    setState(() {
-      isWaitingForResponse = false;
-    });
-
-    // If the response is not strange, navigate to CamCompare screen
-    if (!isAlarmActive) {
-      navigateToCamCompare();
-    }
-  }
-
-  Future<bool> checkServerResponse() async {
-    // Perform the HTTP request to check the server response
-    // Replace this with your actual HTTP request code
-    // Return true if the response is strange, false otherwise
-    return true;
-  }
-
-  void startPhoneAlarm() {
-    // Code to start the phone alarm
-    // Replace this with your actual code to start the alarm
-    FlutterRingtonePlayer.playAlarm(
-      looping: true, // Set to true for continuous playback
-      asAlarm: true, // Play as an alarm sound
-      volume: 1.0, // Set the volume (0.0 to 1.0)
-    );
-  }
-
-  void navigateToCamCompare() async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (BuildContext context) {
-        return CamCompare(myFace: myFace);
-      }),
-    );
-
-    // Check if the user is the original user
-    if (result == true) {
-      // Stop the phone alarm
-      // Replace this with your actual code to stop the alarm
-      stopPhoneAlarm();
-    }
-  }
-
-  void stopPhoneAlarm() {
-    // Code to stop the phone alarm
-    // Replace this with your actual code to stop the alarm
-    FlutterRingtonePlayer.stop();
-  }
-}
-
-class _Image extends StatelessWidget {
-  const _Image({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Image.asset('asset/img/home_img.png'),
-    );
-  }
-}
-
-class registerButton extends StatelessWidget {
-  late final VoidCallback onPressed;
-
-  registerButton({required this.onPressed, Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        ElevatedButton(onPressed: onPressed, child: Text("얼굴 등록")),
-      ],
-    );
-  }
-}
-
-class compareButton extends StatelessWidget {
-  late final VoidCallback onPressed;
-  late final bool abled;
-
-  compareButton({required this.onPressed, required this.abled, Key? key})
-      : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        ElevatedButton(
-            onPressed: abled ? onPressed : null, child: Text("얼굴 인식")),
-      ],
     );
   }
 }
