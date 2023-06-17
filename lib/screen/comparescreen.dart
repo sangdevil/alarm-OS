@@ -115,8 +115,8 @@ class _CamCompareState extends State<CamCompare> {
         final Face face1 = detectedFaces.first;
         final face2 = currentDetectedFaces.first;
         final simillar = calculateSimilarity(face1, face2);
-        print("차이는 $simillar");
-        if (simillar > 0.1) {
+        print("유사도는 $simillar");
+        if (simillar > 0) {
           // Faces are considered a match
           showCompareSuccess('Faces matched');
           resultBool = true;
@@ -160,14 +160,6 @@ class _CamCompareState extends State<CamCompare> {
     // Calculate head Euler angle similarity (if available)
     double eulerAngleSimilarity = calculateEulerAngleSimilarity(face1, face2);
     similarity += eulerAngleSimilarity;
-
-    // Calculate eye open probability similarity (if available)
-    double eyeOpenProbabilitySimilarity = calculateEyeOpenProbabilitySimilarity(face1, face2);
-    similarity += eyeOpenProbabilitySimilarity;
-
-    // Calculate smiling probability similarity (if available)
-    double smilingProbabilitySimilarity = calculateSmilingProbabilitySimilarity(face1, face2);
-    similarity += smilingProbabilitySimilarity;
 
     // Calculate similarity based on landmarks and contours
     double landmarkSimilarity = calculateLandmarkSimilarity(face1, face2);

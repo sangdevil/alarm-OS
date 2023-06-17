@@ -48,7 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }),
     );
-    if (result != null) {
+    if (result != null && result == 'Faces matched') {
+
       setState(() {
         faceCorrect = true;
         FlutterRingtonePlayer.stop();
@@ -144,11 +145,8 @@ class _LogoState extends State<_Logo> {
     });
 
     while (isWaitingForResponse) {
-      // Communicate with the server every 5 seconds and check for a response
       await Future.delayed(const Duration(seconds: 5));
 
-      // Make an HTTP request to the server and check the response
-      // Replace this with your actual HTTP request code
       bool isResponseStrange = await checkSoundResponse();
       print(isResponseStrange);
       if (isResponseStrange) {
@@ -156,56 +154,47 @@ class _LogoState extends State<_Logo> {
           isAlarmActive = true;
         });
 
-        // Start the phone alarm
-        // Replace this with your actual code to start the alarm
         startPhoneAlarm();
 
-        // Exit the loop and stop waiting for the response
         break;
       }
     }
 
-    // Reset the button state
+
     setState(() {
       isWaitingForResponse = false;
     });
 
-    // If the response is not strange, navigate to CamCompare screen
+
     if (!isAlarmActive) {
       navigateToCamCompare();
     }
   }
 
   Future<bool> checkSoundResponse() async {
-    bool isSpecificWordFound =
-        false; // Variable to track if the specific word is found
-
+    List<String> targetWords = ['게임', '놀러', '축구', '야구', '농구', '풋살', '피씨방'];
+    bool isTargetWordFound = false;
     if (await speechToText.initialize()) {
-      // Create a Completer to handle the result asynchronously
       Completer<bool> completer = Completer<bool>();
-
       speechToText.listen(
         onResult: (result) {
           final String recognizedSpeech = result.recognizedWords.toLowerCase();
-          print(result);
-          if (recognizedSpeech.contains('게임')) {
-            isSpecificWordFound = true; // Set the variable to true
+          // Check if any target word is found in the recognized speech
+          for (String word in targetWords) {
+            if (recognizedSpeech.contains(word)) {
+              isTargetWordFound = true;
+              break;
+            }
           }
         },
-        onSoundLevelChange: (level) {
-          // Optional: Handle sound level changes if needed
-        },
-        listenFor: Duration(seconds: 5), // Listen for 5 seconds
+        // Listen for 5 seconds
+        listenFor: Duration(seconds: 5),
       );
-
       // Wait for the result or timeout after 5 seconds
       await Future.delayed(Duration(seconds: 5));
-      completer.complete(
-          isSpecificWordFound); // Complete the completer with the result
-
+      completer.complete(isTargetWordFound);
       // Stop listening after the timeout
       speechToText.stop();
-      // Return the result from the Completer
       return await completer.future;
     }
     return false;
